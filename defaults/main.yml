@@ -1,0 +1,10 @@
+ldap_manager_pw: "{{ lookup('vault','secret/env/ldap_manager_pw', 'data') }}"
+docker_auth_crt: "{{ lookup('vault','secret/docker-auth/cert.pem', 'data') }}"
+docker_auth_key: "{{ lookup('vault','secret/docker-auth/privkey.pem', 'data') }}"
+docker_auth_image: cesanta/docker_auth:stable
+docker_auth_name: docker_auth
+docker_auth_port: 5001
+docker_auth_base_dir: /auth
+docker_auth_conf_dir: config
+docker_auth_logs: logs
+docker_auth_certs: certs

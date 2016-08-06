@@ -1,0 +1,55 @@
+- name: Create directories
+  file: dest={{ item }} state=directory
+  with_items:
+    - "{{ docker_auth_base_dir }}"
+    - "{{ docker_auth_base_dir }}/{{ docker_auth_conf_dir }}"
+    - "{{ docker_auth_base_dir }}/{{ docker_auth_logs }}"
+    - "{{ docker_auth_base_dir }}/{{ docker_auth_certs }}"
+
+- name: copy entrypoint script
+  copy: src=start.sh dest={{ docker_auth_base_dir }}/start.sh mode=0755
+
+- name: copy config files
+  template: src=config/auth_config.yml dest={{ docker_auth_base_dir }}/{{ docker_auth_conf_dir }}/auth_config.yml mode=0755
+
+- name: create ldap manager pw file
+  copy: content="{{ ldap_manager_pw }}" dest="{{ docker_auth_base_dir }}/{{ docker_auth_conf_dir }}/ldap_password.txt" mode=0400
+
+- name: create docker_auth_crt file
+  copy: content="{{ docker_auth_crt }}" dest="{{ docker_auth_base_dir }}/{{ docker_auth_certs }}/docker_auth.crt"
+
+- name: create docker_auth_key file
+  copy: content="{{ docker_auth_key }}" dest="{{ docker_auth_base_dir }}/{{ docker_auth_certs }}/docker_auth.key"
+
+- name: Check entrypoint script hash
+  stat: path={{ docker_auth_base_dir }}/start.sh
+  register: entrypoint_stat
+
+- name: Check config folder hash
+  shell: tar -cO "{{ docker_auth_base_dir }}/{{ docker_auth_conf_dir }}" | md5sum
+  register: config_folder_sum
+
+- name: Check certs folder hash
+  shell: tar -cO "{{ docker_auth_base_dir }}/{{ docker_auth_certs }}" | md5sum
+  register: certs_folder_sum
+
+- name: start docker_auth container
+  docker:
+      name: "{{ docker_auth_name }}"
+      image: "{{ docker_auth_image }}"
+      entrypoint: "/start.sh"
+      restart_policy: always
+      pull: always
+      ports:
+        - "{{ docker_auth_port }}:{{ docker_auth_port }}"
+      volumes:
+        - "{{ docker_auth_base_dir }}/start.sh:/start.sh:ro"
+        - "{{ docker_auth_base_dir }}/{{ docker_auth_conf_dir }}:/config:ro"
+        - "{{ docker_auth_base_dir }}/{{ docker_auth_logs }}:/logs:rw"
+        - "{{ docker_auth_base_dir }}/{{ docker_auth_certs }}:/certs:ro"
+      env:
+          ENTRYPOINT_HASH: "{{ entrypoint_stat.stat.md5 }}"
+          CONFIG_FOLDER_HASH: "{{ config_folder_sum.stdout |first }}"
+          CERTS_FOLDER_HASH: "{{ certs_folder_sum.stdout |first }}"
+      state: reloaded
+      net: default

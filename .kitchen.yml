@@ -1,0 +1,44 @@
+---
+driver:
+  name: ec2
+  aws_ssh_key_id: {{ key_name }}
+  security_group_ids: ["sg-XXXXXX"]
+  region: {{ AWS_DEFAULT_REGION }}
+  require_chef_omnibus: false
+  subnet_id: subnet-xxxxxxxx
+  instance_type: t2.micro
+  associate_public_ip: false
+  interface: private
+  tags:
+    Name: test-kitchen
+
+provisioner:
+  name: ansible_playbook
+  hosts: test-kitchen
+  lookup_plugins_path: ../../library
+  roles_path: ..
+  ansible_verbose: true
+  ansible_verbosity: 3
+  require_chef_for_busser: false
+
+verifier:
+  name: serverspec
+
+platforms:
+  - name: centos-7
+    driver:
+      image_id: {{ ami }}
+      block_device_mappings:
+        - device_name: /dev/sda1
+          ebs:
+            volume_size: 15
+            delete_on_termination: true
+
+verifier:
+  name: serverspec
+
+suites:
+  - name: default
+    verifier:
+      patterns:
+        - docker-auth/test/integration/default/serverspec/default_spec.rb
